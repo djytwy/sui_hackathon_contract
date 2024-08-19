@@ -107,7 +107,7 @@ public fun create_reward_pool<T:drop>(_:&AutherizeCap,ctx: &mut TxContext){
     let id =object::new(ctx);
     let eid = id.to_inner();
     let rewardCap = RewardCap<T> {
-        id: object::new(ctx),
+        id: id,
         balance: balance::zero(),
     };
     transfer::share_object(rewardCap);
@@ -117,19 +117,19 @@ public fun create_reward_pool<T:drop>(_:&AutherizeCap,ctx: &mut TxContext){
     });
 }
 
-  public fun create_stake_receive(ctx: &mut TxContext){
+  public fun create_stake_receive(ctx: &mut TxContext):StakingReceipt{
     let id =object::new(ctx);
     let eid = id.to_inner();
-      transfer::transfer(StakingReceipt {
-            id: object::new(ctx),
-            amount_staked: 0,
-            owner: ctx.sender(),
-        }, ctx.sender());
 
        event::emit(ReceiptCreate {
             receipt_id: eid,
             owner: ctx.sender()
         });
+        StakingReceipt {
+            id: id,
+            amount_staked: 0,
+            owner: ctx.sender(),
+        }
 
   }
 
@@ -223,9 +223,8 @@ public fun stake(
     public fun unstake(
         receipt: StakingReceipt,
          liquidity_pool: &mut GameLiquidityPool,
-        clock: &Clock,
         ctx: &mut TxContext
-    ){
+    ):Coin<OTS> {
         let StakingReceipt {
             id,
             amount_staked,
@@ -249,8 +248,8 @@ public fun stake(
          } = liquidity_pool;
          assert!(ostBalance.value() >= amount_staked, EAmountTooHigh);
         let bs = balance::split(ostBalance, amount_staked);
-         let coins = coin::from_balance(bs, ctx);
-         transfer::public_transfer(coins,  ctx.sender());
+      coin::from_balance(bs, ctx)
+
 
     }
 
@@ -264,15 +263,15 @@ public fun stake(
             amount: coin.value()
         });
 
-        liquidity_pool.balance.join(coin.into_balance());
-        liquidity_pool.otoken = liquidity_pool.otoken + coin.value();
+               liquidity_pool.otoken = liquidity_pool.otoken + coin.value();
+                liquidity_pool.balance.join(coin.into_balance());
     }
 
     // === Private Functions ===
 
     /// Take OTS tokens from the GameLiquidityPool without capability check.
     /// This function is only accessible to the friend module.
-    fun ots_tokens_request(
+   public fun ots_tokens_request(
         liquidity_pool: &mut GameLiquidityPool,
         amount: u64,
         ctx: &mut TxContext
@@ -287,25 +286,6 @@ public fun stake(
         });
         
         coin::take(&mut liquidity_pool.balance, amount, ctx)
-    }
-
-    /// Calculate the locking time in milliseconds
-    ///     base_timestamp: the base timestamp in milliseconds
-    ///     locking_days: the number of days to lock
-    fun calculate_locking_time(
-        base_timestamp: u64,
-        locking_period_in_days: u64
-    ): u64 {
-        base_timestamp + locking_period_in_days * 24 * 60 * 60 * 1000
-    }
-
-    // === Public view Functions ===
-    public fun game_liquidity_pool_balance(liquidity_pool: &GameLiquidityPool): u64 {
-        liquidity_pool.balance.value()
-    }
-
-    public fun staking_receipt_amount(receipt: &StakingReceipt): u64 {
-        receipt.amount_staked
     }
 
 
