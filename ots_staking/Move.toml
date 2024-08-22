@@ -14,7 +14,7 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 
 # For local dependencies use `local = path`. Path is relative to the package root
 ots = { local = "../ots" }
-pts = { local = "../pts" }
+
 
 # To resolve a version conflict and force a specific version for dependency
 # override use `override = true`
@@ -23,7 +23,6 @@ pts = { local = "../pts" }
 [addresses]
 ots_staking = "0x0"
 ots = "0x0"
-pts = '0x0'
 
 # Named addresses will be accessible in Move as `@name`. They're also exported:
 # for example, `std = "0x1"` is exported by the Standard Library.
@@ -34,14 +33,14 @@ bob = "0xB0B"
 chad = "0xC5AD"
 protool = "0xABE4C"
 treasury = "0x369"
+ptstester = "0xABE8C"
 
 [dev-dependencies]
 # The dev-dependencies section allows overriding dependencies for `--test` and
 # `--dev` modes. You can introduce test-only dependencies here.
 # Local = { local = "../path/to/dev-build" }
-
+rts= {local ="../rts"}
 [dev-addresses]
-# The dev-addresses section allows overwriting named addresses for the `--test`
-# and `--dev` modes.
+# rts = "0x0"
 
 

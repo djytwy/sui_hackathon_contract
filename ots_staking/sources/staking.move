@@ -9,11 +9,12 @@ module ots_staking::staking {
         event,
         math,
         table::{Self, Table},
-        clock::Clock
+        transfer::{Self, public_share_object},
+        clock::Clock,
     };
 
     use ots::ots::OTS;
-    use pts::pts::{Self, PTS , AllowCap, MintCap};
+    use ots_staking::pts::{Self, PTS , AllowCap, MintCap};
 
     // === Errors ===
     const EStakingQuantityTooLow: u64 = 0;
@@ -35,6 +36,16 @@ module ots_staking::staking {
         owner: address
     }
 
+    public struct Claimed has copy, drop {
+        receipt_id: ID,
+        owner: address,
+        amount: u64,
+    }
+     public struct DropRewardPool has key, store { 
+        id: UID,
+        balance: Balance<PTS>,
+
+    }
     public struct RewardDetail has store {
         reward: u64,
         swapToken: u64,
@@ -56,6 +67,12 @@ module ots_staking::staking {
         amount: u64,
     }
 
+
+    public struct RewardPoolToken has copy, drop {
+            receipt_id: ID,
+            owner: address,
+            amount: u64,
+        }
     public struct ReceiptCreate has copy, drop {
         receipt_id: ID,
         owner: address
@@ -133,6 +150,86 @@ public fun create_reward_pool<T:drop>(_:&AutherizeCap,ctx: &mut TxContext){
 
   }
 
+  public fun getStakeReceiptAmount(receipt: &StakingReceipt):u64 {
+    receipt.amount_staked
+  }
+  public fun getGameLiquidityPoolBalance(liquidity_pool: &GameLiquidityPool):u64 {
+        liquidity_pool.balance.value()
+  }
+
+  public fun getGameLiquidityPoolPool(liquidity_pool: &GameLiquidityPool):u64 {
+        liquidity_pool.ctoken
+  }
+
+public fun getDropRewardPoolBalance(drop_reward_pool: &DropRewardPool):u64 {
+drop_reward_pool.balance.value()
+}
+
+  public fun reward_pool_token(
+        liquidity_pool: &mut GameLiquidityPool,
+        allowCap: &AllowCap<PTS>,
+        mintCap: &mut MintCap<PTS>, 
+        reward: u64,
+        ctx: &mut TxContext){
+        let id = object::new(ctx);
+let eid = id.to_inner();
+       let pts_coin = pts::mint_reward(mintCap, reward, ctx);
+        // liquidity_pool.ctoken = liquidity_pool.ctoken + reward;
+        public_share_object(DropRewardPool {
+            id: id,
+            balance: pts_coin.into_balance(),
+        });
+        event::emit(RewardPoolToken {
+            receipt_id: eid,
+            owner: ctx.sender(),
+            amount: reward,
+        });
+     }
+
+     public fun computer(liquidity_pool: &mut GameLiquidityPool,drop_reward_pool: &mut DropRewardPool, stake_receipt:&mut StakingReceipt):u64{
+         let pre_step =(stake_receipt.amount_staked as u128) * (drop_reward_pool.balance.value() as u128);
+             pre_step.divide_and_round_up(liquidity_pool.ctoken as u128) as u64
+
+     }
+
+     public fun claim_pool_token(liquidity_pool: &mut GameLiquidityPool,drop_reward_pool: &mut DropRewardPool, stake_receipt:&mut StakingReceipt,ctx: &mut TxContext):Coin<PTS>{
+        
+        assert!(stake_receipt.amount_staked > 0, EStakingQuantityTooLow);
+         assert!(stake_receipt.amount_staked < liquidity_pool.ctoken , EStakingQuantityTooLow);
+         assert!(liquidity_pool.ctoken > 0 , EStakingQuantityTooLow); 
+    let pre_step =(stake_receipt.amount_staked as u128) * (drop_reward_pool.balance.value() as u128);
+        let StakingReceipt{
+            id:_,
+            amount_staked:_,
+            owner:_,
+        } = stake_receipt;
+        
+        let  DropRewardPool{
+            id:_,
+            balance: ptsBalance,
+        } = drop_reward_pool;
+
+        let  GameLiquidityPool{
+                id:_,
+                balance: ostBalance,
+                otoken:_,
+                ctoken,
+                    owner:_,
+             } = liquidity_pool;
+
+        let reward_amount = pre_step.divide_and_round_up(*ctoken as u128) as u64;
+       let  pts_coin= coin::take(&mut drop_reward_pool.balance, reward_amount, ctx);
+
+        liquidity_pool.ctoken = liquidity_pool.ctoken + reward_amount;
+        event::emit(Claimed {
+            receipt_id: stake_receipt.id.to_inner(),
+            owner: ctx.sender(),
+            amount: reward_amount,
+        });
+        pts_coin
+     }
+
+
 public fun stake(
         stake: Coin<OTS>,
         liquidity_pool: &mut GameLiquidityPool,
@@ -149,7 +246,7 @@ public fun stake(
                 owner,
          } = liquidity_pool;
          
-         let origin_balance = ostBalance.value();
+         let origin_balance = coin::value(&stake);
                  assert!(origin_balance > 0, EStakingQuantityTooLow);
             let exchange_token  = stake.value() * 1;
 
@@ -181,42 +278,6 @@ public fun stake(
     transfer::public_transfer(coins,  to);
 
   }
-    // == Public Functions ==
-
-    // /// Create a new staking receipt with the given stake and staking days.
-    // public fun new_staking_receipt(
-    //     stake: Coin<OTS>,
-    //     liquidity_pool: &mut GameLiquidityPool,
-    //     clock: &Clock,
-    //     config: &StakingConfig,
-    //     staking_in_days: u64,
-    //     ctx: &mut TxContext
-    // ): StakingReceipt {
-    //     let detail = config.get_staking_rule(staking_in_days);
-    //     let (min, max) = detail.staking_quantity_range();
-    //     let amount = stake.value();
-    //     assert!(amount > min, EStakingQuantityTooLow);
-    //     assert!(amount <= max, EStakingQuantityTooHigh);   
-    //     let staked_at = clock.timestamp_ms();
-    //     let reward = config.staking_reward(staking_in_days, amount);
-    //     let id = object::new(ctx);
-
-    //     event::emit(Staked {
-    //         receipt_id: id.to_inner(),
-    //         owner: ctx.sender(),
-    //         amount
-    //     });
-
-    //     StakingReceipt {
-    //         id,
-    //         amount_staked: stake.into_balance(),
-    //         staked_at,
-    //         applied_staking_days: staking_in_days,
-    //         applied_interest_rate_bp: detail.annualized_interest_rate_bp(),
-    //         staking_end_at: calculate_locking_time(staked_at, staking_in_days),
-    //         reward: ots_tokens_request(liquidity_pool, reward, ctx).into_balance()
-    //     }
-    // }
 
     /// Unstake the tokens from the receipt.
     /// This function can be called only when the staking time is ended
@@ -287,6 +348,9 @@ public fun stake(
         
         coin::take(&mut liquidity_pool.balance, amount, ctx)
     }
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) { init(ctx); }
 
+  
 
 }
