@@ -3,7 +3,7 @@ module ots_staking::ots_staking_tests {
     use ots_staking::pts::{Self, PTS,AllowCap,MintCap } ; //  mapping coin
     use ots::ots::{Self, OTS, OTSTotalSupply } ;//stake coin
     use rts::rts::{Self, RTS, RtsTotalSupply } ; // extra reward coin 
-    use ots_staking::staking::{Self, StakingReceipt, GameLiquidityPool ,AutherizeCap, DropRewardPool } ;
+    use ots_staking::staking::{Self, StakingReceipt, GameLiquidityPool ,AutherizeCap, DropRewardPool, RewardCap } ;
     use sui::{
         test_utils::{assert_eq, print}, 
         test_scenario as ts,
@@ -189,14 +189,42 @@ module ots_staking::ots_staking_tests {
 
         };
 
-                ts::next_tx(&mut scenario, @ptstester);
-                {
-                        let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
-                    let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
-                  let ots= staking::unstake(stake_receipt, &mut gameLiquidityPool, ts::ctx(&mut scenario));
-                   public_transfer(ots, @ptstester);
-                    ts::return_shared(gameLiquidityPool);
-                };
+            ts::next_tx(&mut scenario, @ptstester);
+            {
+                    let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
+                let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
+                let ots= staking::unstake(stake_receipt, &mut gameLiquidityPool, ts::ctx(&mut scenario));
+                public_transfer(ots, @ptstester);
+                ts::return_shared(gameLiquidityPool);
+            };
+
+            ts::next_tx(&mut scenario, @otstester);
+            {
+                 rts::init_for_testing(scenario.ctx());
+                 let autherizeCap = scenario.take_from_sender<AutherizeCap>();
+                 staking::create_reward_pool<RTS>(&autherizeCap, ts::ctx(&mut scenario));
+                    scenario.return_to_sender(autherizeCap);
+            };
+
+             ts::next_tx(&mut scenario, @otstester);
+            {
+                let mut rts_coin = scenario.take_from_sender<Coin<RTS>>();
+               let split_coin=  coin::split(&mut rts_coin, 10000, ts::ctx(&mut scenario));
+              public_transfer(split_coin, @ptstester);
+                scenario.return_to_sender(rts_coin);
+
+            };
+
+            ts::next_tx(&mut scenario, @ptstester);
+            {
+                let mut rts_coin = scenario.take_from_sender<Coin<RTS>>();
+                let mut reward_cap = scenario.take_shared<RewardCap<RTS>>();
+               let split_coin=  coin::split(&mut rts_coin, 100, ts::ctx(&mut scenario));
+                 staking::add_reward<RTS>(&mut reward_cap,split_coin);
+                scenario.return_to_sender(rts_coin);
+                ts::return_shared(reward_cap);
+
+            };
             
 
 
