@@ -46,10 +46,6 @@ module ots_staking::staking {
         balance: Balance<PTS>,
 
     }
-    public struct RewardDetail has store {
-        reward: u64,
-        swapToken: u64,
-    }
 
     /// [Shared Object]: GameLiquidityPool is a store of minted OTS tokens.
     public struct GameLiquidityPool has key {
@@ -166,13 +162,11 @@ drop_reward_pool.balance.value()
 }
 
   public fun reward_pool_token(
-        liquidity_pool: &mut GameLiquidityPool,
-        allowCap: &AllowCap<PTS>,
         mintCap: &mut MintCap<PTS>, 
         reward: u64,
         ctx: &mut TxContext){
         let id = object::new(ctx);
-let eid = id.to_inner();
+       let eid = id.to_inner();
        let pts_coin = pts::mint_reward(mintCap, reward, ctx);
         // liquidity_pool.ctoken = liquidity_pool.ctoken + reward;
         public_share_object(DropRewardPool {
@@ -206,12 +200,12 @@ let eid = id.to_inner();
         
         let  DropRewardPool{
             id:_,
-            balance: ptsBalance,
+            balance: _,
         } = drop_reward_pool;
 
         let  GameLiquidityPool{
                 id:_,
-                balance: ostBalance,
+                balance: _,
                 otoken:_,
                 ctoken,
                     owner:_,
@@ -289,7 +283,7 @@ public fun stake(
         let StakingReceipt {
             id,
             amount_staked,
-            owner,
+            owner:_,
         } = receipt;
 
         event::emit(Unstaked {
@@ -301,11 +295,11 @@ public fun stake(
         id.delete();
                  liquidity_pool.otoken = liquidity_pool.otoken - amount_staked;
            let GameLiquidityPool{
-              id,
+              id:_,
               balance: ostBalance,
-              otoken,
-              ctoken,
-                owner,
+              otoken:_,
+              ctoken:_,
+                owner:_,
          } = liquidity_pool;
          assert!(ostBalance.value() >= amount_staked, EAmountTooHigh);
         let bs = balance::split(ostBalance, amount_staked);

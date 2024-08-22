@@ -16,22 +16,25 @@ module ots_staking::ots_staking_tests {
     fun test_treasury_cap_is_burnt() {
         let mut scenario = ts::begin(@protool);
         {
+            //初始化质押合约
             staking::init_for_testing(scenario.ctx());
         };
         ts::next_tx(&mut scenario, @protool);
         {
+            //创建rts(任意币奖励池)奖励池
             let autherizeCap = scenario.take_from_sender<AutherizeCap>();
             staking::create_reward_pool<PTS>(&autherizeCap,ts::ctx(&mut scenario));
-             staking::create_reward_pool<RTS>(&autherizeCap,ts::ctx(&mut scenario));
             scenario.return_to_sender(autherizeCap);
         };
         ts::next_tx(&mut scenario, @otstester);
         {
+            //初始化ots（usdt) 合约
            ots::init_for_testing(scenario.ctx());
         
         };
         ts::next_tx(&mut scenario, @otstester);
         {
+            //验证ots 的币总量
            let ots_coin =scenario.take_from_sender<Coin<OTS>>();
            assert_eq(coin::value(&ots_coin), EXPECTED_TOTAL_SUPPLY);
               scenario.return_to_sender(ots_coin);
@@ -39,6 +42,7 @@ module ots_staking::ots_staking_tests {
 
         ts::next_tx(&mut scenario, @otstester);
         {
+            //交易ots 币给到质押者 用于测试
           let mut ots_coin =scenario.take_from_sender<Coin<OTS>>();
                    //交易 10000 ots给到ptstester
                  let trade_coin= coin::split(&mut ots_coin, 10000 * PTS_DECIMALS, ts::ctx(&mut scenario));
@@ -52,6 +56,7 @@ module ots_staking::ots_staking_tests {
 
         ts::next_tx(&mut scenario, @ptstester);
         {
+            //切换到质押者 核实金额
                    let mut ots_coin =scenario.take_from_sender<Coin<OTS>>();
                      assert_eq(coin::value(&ots_coin), 10000 * PTS_DECIMALS);
                     scenario.return_to_sender(ots_coin);
@@ -59,6 +64,7 @@ module ots_staking::ots_staking_tests {
 
         ts::next_tx(&mut scenario, @ptstester);
         {
+            //创建质押者质@ptstester 押凭证 stake_receipt
            let staking_receipt = staking::create_stake_receive(ts::ctx(&mut scenario));
               assert_eq(staking::getStakeReceiptAmount(&staking_receipt), 0);
             //    share_object(staking_receipt);
@@ -67,6 +73,7 @@ module ots_staking::ots_staking_tests {
         };
         ts::next_tx(&mut scenario, @chad);
         {
+            //创建质押者质@chad押凭证 stake_receipt
         let staking_receipt = staking::create_stake_receive(ts::ctx(&mut scenario));
         assert_eq(staking::getStakeReceiptAmount(&staking_receipt), 0);
         //    share_object(staking_receipt);
@@ -75,13 +82,15 @@ module ots_staking::ots_staking_tests {
         };
         ts::next_tx(&mut scenario, @ptstester);
         {
-                 let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
+            //质押者质@chad押ots币
+                 let  stake_receipt = scenario.take_from_sender<StakingReceipt>();
                 assert_eq(staking::getStakeReceiptAmount(&stake_receipt), 0);
                   scenario.return_to_sender(stake_receipt);
         };
 
         ts::next_tx(&mut scenario, @ptstester);
         {
+            //质押者质@ptstester押ots币到合约
            
            let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
             let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
@@ -99,10 +108,10 @@ module ots_staking::ots_staking_tests {
 
             ts::next_tx(&mut scenario, @chad);
             {
-
+        //质押者质@chad押ots币到合约
             let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
             let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
-            let mut ots_coin = scenario.take_from_sender<Coin<OTS>>();
+            let  ots_coin = scenario.take_from_sender<Coin<OTS>>();
             assert_eq(coin::value(&ots_coin), 10000 * PTS_DECIMALS);
             let  allow = scenario.take_shared<AllowCap<PTS>>();
             let mut mintCap = scenario.take_shared<MintCap<PTS>>();
@@ -116,7 +125,8 @@ module ots_staking::ots_staking_tests {
 
         ts::next_tx(&mut scenario, @ptstester);
         {
-           let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
+            //验证质押者质@ptstester质押凭证金额
+           let  stake_receipt = scenario.take_from_sender<StakingReceipt>();
             assert_eq(staking::getStakeReceiptAmount(&stake_receipt), 10000 * PTS_DECIMALS);
             scenario.return_to_sender(stake_receipt);
             let pts_coin  = scenario.take_from_sender<Coin<PTS>>();
@@ -129,33 +139,34 @@ module ots_staking::ots_staking_tests {
 
        ts::next_tx(&mut scenario, @ptstester);
         {
-            let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
+            //验证质押池的金额
+            let  gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
         assert_eq(staking::getGameLiquidityPoolBalance(&gameLiquidityPool), 20000 * PTS_DECIMALS);
         ts::return_shared(gameLiquidityPool);
         };
 
         ts::next_tx(&mut scenario, @otstester);
         {
-            let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
-            // let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
+            // 发放ctoken 奖励
                 let  allow = scenario.take_shared<AllowCap<PTS>>();
                         let mut mintCap = scenario.take_shared<MintCap<PTS>>();
-                        staking::reward_pool_token(&mut gameLiquidityPool, &allow, &mut mintCap, 200 * PTS_DECIMALS, ts::ctx(&mut scenario));
+                        staking::reward_pool_token(&mut mintCap, 200 * PTS_DECIMALS, ts::ctx(&mut scenario));
                          ts::return_shared(mintCap);
             ts::return_shared(allow);
-            ts::return_shared(gameLiquidityPool);
             // scenario.return_to_sender(stake_receipt);
 
         };
 
         ts::next_tx(&mut scenario, @otstester);
         {
+            //验证ctoken奖励池金额
         let  drop_reward_pool = scenario.take_shared<DropRewardPool>();
           assert_eq(staking::getDropRewardPoolBalance(&drop_reward_pool), 200 * PTS_DECIMALS);
             ts::return_shared(drop_reward_pool);
         };
           ts::next_tx(&mut scenario, @ptstester);
             {
+                //质押者领取ctoken奖励
             let mut drop_reward_pool = scenario.take_shared<DropRewardPool>();
             let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
             let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
@@ -177,7 +188,7 @@ module ots_staking::ots_staking_tests {
 
          ts::next_tx(&mut scenario, @ptstester);
         {
-
+            //验证流动性池的ctoken
             let coin_pts = scenario.take_from_sender<Coin<PTS>>();
              let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
             //  assert_eq(staking::getGameLiquidityPoolPool(&gameLiquidityPool), 20000 * PTS_DECIMALS);
@@ -191,7 +202,8 @@ module ots_staking::ots_staking_tests {
 
             ts::next_tx(&mut scenario, @ptstester);
             {
-                    let mut stake_receipt = scenario.take_from_sender<StakingReceipt>();
+                //解质押
+                    let  stake_receipt = scenario.take_from_sender<StakingReceipt>();
                 let mut gameLiquidityPool = scenario.take_shared<GameLiquidityPool>();
                 let ots= staking::unstake(stake_receipt, &mut gameLiquidityPool, ts::ctx(&mut scenario));
                 public_transfer(ots, @ptstester);
@@ -200,6 +212,7 @@ module ots_staking::ots_staking_tests {
 
             ts::next_tx(&mut scenario, @otstester);
             {
+                //初始化rts币，并且创建rts奖励池
                  rts::init_for_testing(scenario.ctx());
                  let autherizeCap = scenario.take_from_sender<AutherizeCap>();
                  staking::create_reward_pool<RTS>(&autherizeCap, ts::ctx(&mut scenario));
@@ -208,8 +221,9 @@ module ots_staking::ots_staking_tests {
 
              ts::next_tx(&mut scenario, @otstester);
             {
+                //交易rts币给其他人，用于其他人添加奖励
                 let mut rts_coin = scenario.take_from_sender<Coin<RTS>>();
-               let split_coin=  coin::split(&mut rts_coin, 10000, ts::ctx(&mut scenario));
+               let split_coin=  coin::split(&mut rts_coin, 10000 * PTS_DECIMALS, ts::ctx(&mut scenario));
               public_transfer(split_coin, @ptstester);
                 scenario.return_to_sender(rts_coin);
 
@@ -217,18 +231,23 @@ module ots_staking::ots_staking_tests {
 
             ts::next_tx(&mut scenario, @ptstester);
             {
+                //添加RTS奖励
                 let mut rts_coin = scenario.take_from_sender<Coin<RTS>>();
                 let mut reward_cap = scenario.take_shared<RewardCap<RTS>>();
-               let split_coin=  coin::split(&mut rts_coin, 100, ts::ctx(&mut scenario));
+               let split_coin=  coin::split(&mut rts_coin, 100 * PTS_DECIMALS , ts::ctx(&mut scenario));
                  staking::add_reward<RTS>(&mut reward_cap,split_coin);
                 scenario.return_to_sender(rts_coin);
                 ts::return_shared(reward_cap);
 
             };
-            
+             ts::next_tx(&mut scenario, @otstester);
+            { 
+                //主动发放奖励
+                let mut reward_cap = scenario.take_shared<RewardCap<RTS>>();
+                staking::drop_reword(&mut reward_cap, 10 *PTS_DECIMALS ,  @ptstester, ts::ctx(&mut scenario));
+                ts::return_shared(reward_cap);
+            };
 
-
-       
         scenario.end();
     }
 
